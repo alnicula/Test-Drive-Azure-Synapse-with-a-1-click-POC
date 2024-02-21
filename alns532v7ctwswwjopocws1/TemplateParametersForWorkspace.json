@@ -5,8 +5,14 @@
 		"workspaceName": {
 			"value": "alns532v7ctwswwjopocws1"
 		},
+		"AzureDataLakeStorageWithoutParameters_accountKey": {
+			"value": ""
+		},
 		"TripFaresSynapseAnalyticsLinkedService_connectionString": {
 			"value": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=@{linkedService().SynapseWorkspaceName};Initial Catalog=@{linkedService().SQLDedicatedPoolName};User ID=@{linkedService().SQLLoginUsername}"
+		},
+		"AzureDataLakeStorageWithoutParameters_properties_typeProperties_url": {
+			"value": "https://alns532v7ctwswwjopoc.dfs.core.windows.net/"
 		},
 		"HttpServerTripDataLinkedService_properties_typeProperties_url": {
 			"value": "https://raw.githubusercontent.com/Azure/Test-Drive-Azure-Synapse-with-a-1-click-POC/main/tripDataAndFaresCSV/trip-data.csv"
