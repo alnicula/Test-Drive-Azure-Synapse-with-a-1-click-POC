@@ -22,7 +22,7 @@
 						"partitionOption": "None"
 					},
 					"dataset": {
-						"referenceName": "SqlServerTableOnPrem",
+						"referenceName": "ASD01Tables",
 						"type": "DatasetReference"
 					},
 					"firstRowOnly": false
@@ -62,7 +62,10 @@
 							"typeProperties": {
 								"source": {
 									"type": "SqlServerSource",
-									"sqlReaderQuery": "@concat('SELECT * FROM ', string(item().TableName))",
+									"sqlReaderQuery": {
+										"value": "@concat('SELECT * FROM ', string(item().TableName))",
+										"type": "Expression"
+									},
 									"queryTimeout": "02:00:00",
 									"partitionOption": "None"
 								},
@@ -86,7 +89,7 @@
 							},
 							"inputs": [
 								{
-									"referenceName": "SqlServerTableOnPrem",
+									"referenceName": "ASD01Tables",
 									"type": "DatasetReference"
 								}
 							],
@@ -95,8 +98,14 @@
 									"referenceName": "AzureSynapseAnalytics",
 									"type": "DatasetReference",
 									"parameters": {
-										"schema": "@string('SalesMigration')",
-										"table": "@string(item().TableName"
+										"schema": {
+											"value": "@string('SalesMigration')",
+											"type": "Expression"
+										},
+										"table": {
+											"value": "@string(item().TableName)",
+											"type": "Expression"
+										}
 									}
 								}
 							]
