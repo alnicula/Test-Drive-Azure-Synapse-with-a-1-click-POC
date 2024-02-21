@@ -1,0 +1,17 @@
+{
+	"name": "ASD01Tables",
+	"type": "Microsoft.Synapse/workspaces/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "SqlServer",
+		"typeProperties": {
+			"connectionString": "integrated security=True;data source=LAPTOP-4VUEG59Q;initial catalog=AdventureWorksDW2020",
+			"userName": "EUROPE\\alnicula",
+			"encryptedCredential": "eyJDcmVkZW50aWFsSWQiOiJhYzlmNjA1ZC1iNDc1LTQ5ZTEtOTY0Mi05OTZjZjcwNzdlNGUiLCJWZXJzaW9uIjoiMi4wIiwiQ2xhc3NUeXBlIjoiTWljcm9zb2Z0LkRhdGFQcm94eS5Db3JlLkludGVyU2VydmljZURhdGFDb250cmFjdC5DcmVkZW50aWFsU1UwNkNZMTQifQ=="
+		},
+		"connectVia": {
+			"referenceName": "SelfHostedIR",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}
