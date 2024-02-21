@@ -1,0 +1,26 @@
+{
+	"name": "AzureSynapseAnalytics",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSynapseAnalytics1",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"schema": {
+				"type": "string",
+				"defaultValue": "@dataset().schema"
+			},
+			"table": {
+				"type": "string",
+				"defaultValue": "@dataset().table"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlDWTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": "@dataset().schema",
+			"table": "@dataset().table"
+		}
+	}
+}

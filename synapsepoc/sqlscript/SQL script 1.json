@@ -1,0 +1,17 @@
+{
+	"name": "SQL script 1",
+	"properties": {
+		"content": {
+			"query": "SELECT TOP (100) [AccountKey]\n,[ParentAccountKey]\n,[AccountCodeAlternateKey]\n,[ParentAccountCodeAlternateKey]\n,[AccountDescription]\n,[AccountType]\n,[Operator]\n,[CustomMemberExpression]\n,[EmployeeKey_FinancialController]\n FROM [dbo].[dimaccount]",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "alns532v7ctwswwjopocws1p1",
+				"poolName": "alns532v7ctwswwjopocws1p1"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

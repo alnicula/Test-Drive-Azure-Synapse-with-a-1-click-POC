@@ -1,0 +1,16 @@
+{
+	"name": "SqlPoolTable1",
+	"properties": {
+		"annotations": [],
+		"type": "SqlPoolTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "dimaccount"
+		},
+		"sqlPool": {
+			"referenceName": "alns532v7ctwswwjopocws1p1",
+			"type": "SqlPoolReference"
+		}
+	}
+}
