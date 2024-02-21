@@ -5,6 +5,12 @@
 		"workspaceName": {
 			"value": "alns532v7ctwswwjopocws1"
 		},
+		"ASD01Tables_connectionString": {
+			"value": "Integrated Security=True;Data Source=LAPTOP-4VUEG59Q;Initial Catalog=AdventureWorksDW2020"
+		},
+		"ASD01Tables_password": {
+			"value": ""
+		},
 		"AzureDataLakeStorageWithoutParameters_accountKey": {
 			"value": ""
 		},
@@ -19,6 +25,9 @@
 		},
 		"TripFaresSynapseAnalyticsLinkedService_connectionString": {
 			"value": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=@{linkedService().SynapseWorkspaceName};Initial Catalog=@{linkedService().SQLDedicatedPoolName};User ID=@{linkedService().SQLLoginUsername}"
+		},
+		"ASD01Tables_properties_typeProperties_userName": {
+			"value": "EUROPE\\alnicula"
 		},
 		"AzureDataLakeStorageWithoutParameters_properties_typeProperties_url": {
 			"value": "https://alns532v7ctwswwjopoc.dfs.core.windows.net/"

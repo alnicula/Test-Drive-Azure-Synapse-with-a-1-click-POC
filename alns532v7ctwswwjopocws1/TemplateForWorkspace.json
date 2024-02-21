@@ -7,6 +7,15 @@
 			"metadata": "Workspace name",
 			"defaultValue": "alns532v7ctwswwjopocws1"
 		},
+		"ASD01Tables_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'ASD01Tables'",
+			"defaultValue": "Integrated Security=True;Data Source=LAPTOP-4VUEG59Q;Initial Catalog=AdventureWorksDW2020"
+		},
+		"ASD01Tables_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'ASD01Tables'"
+		},
 		"AzureDataLakeStorageWithoutParameters_accountKey": {
 			"type": "secureString",
 			"metadata": "Secure string for 'accountKey' of 'AzureDataLakeStorageWithoutParameters'"
@@ -28,6 +37,10 @@
 			"type": "secureString",
 			"metadata": "Secure string for 'connectionString' of 'TripFaresSynapseAnalyticsLinkedService'",
 			"defaultValue": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=@{linkedService().SynapseWorkspaceName};Initial Catalog=@{linkedService().SQLDedicatedPoolName};User ID=@{linkedService().SQLLoginUsername}"
+		},
+		"ASD01Tables_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "EUROPE\\alnicula"
 		},
 		"AzureDataLakeStorageWithoutParameters_properties_typeProperties_url": {
 			"type": "string",
@@ -84,7 +97,7 @@
 								"partitionOption": "None"
 							},
 							"dataset": {
-								"referenceName": "SqlServerTableOnPrem",
+								"referenceName": "ASD01Tables",
 								"type": "DatasetReference",
 								"parameters": {}
 							},
@@ -152,7 +165,7 @@
 									},
 									"inputs": [
 										{
-											"referenceName": "SqlServerTableOnPrem",
+											"referenceName": "ASD01Tables",
 											"type": "DatasetReference",
 											"parameters": {}
 										}
@@ -162,8 +175,14 @@
 											"referenceName": "AzureSynapseAnalytics",
 											"type": "DatasetReference",
 											"parameters": {
-												"schema": "@string('SalesMigration')",
-												"table": "@string(item().TableName"
+												"schema": {
+													"value": "@string('SalesMigration')",
+													"type": "Expression"
+												},
+												"table": {
+													"value": "@string(item().TableName)",
+													"type": "Expression"
+												}
 											}
 										}
 									]
@@ -178,7 +197,7 @@
 				"annotations": []
 			},
 			"dependsOn": [
-				"[concat(variables('workspaceId'), '/datasets/SqlServerTableOnPrem')]",
+				"[concat(variables('workspaceId'), '/datasets/ASD01Tables')]",
 				"[concat(variables('workspaceId'), '/datasets/AzureSynapseAnalytics')]",
 				"[concat(variables('workspaceId'), '/linkedServices/AzureDataLakeStorageWithoutParameters')]"
 			]
@@ -845,6 +864,24 @@
 			]
 		},
 		{
+			"name": "[concat(parameters('workspaceName'), '/ASD01Tables')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "SqlServer1",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [],
+				"typeProperties": {}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/SqlServer1')]"
+			]
+		},
+		{
 			"name": "[concat(parameters('workspaceName'), '/AzureSynapseAnalytics')]",
 			"type": "Microsoft.Synapse/workspaces/datasets",
 			"apiVersion": "2019-06-01-preview",
@@ -1180,61 +1217,19 @@
 			"apiVersion": "2019-06-01-preview",
 			"properties": {
 				"linkedServiceName": {
-					"referenceName": "SqlServer1",
+					"referenceName": "ASD01Tables",
 					"type": "LinkedServiceReference"
 				},
 				"annotations": [],
 				"type": "SqlServerTable",
-				"schema": [
-					{
-						"name": "AccountKey",
-						"type": "int",
-						"precision": 10
-					},
-					{
-						"name": "ParentAccountKey",
-						"type": "int",
-						"precision": 10
-					},
-					{
-						"name": "AccountCodeAlternateKey",
-						"type": "int",
-						"precision": 10
-					},
-					{
-						"name": "ParentAccountCodeAlternateKey",
-						"type": "int",
-						"precision": 10
-					},
-					{
-						"name": "AccountDescription",
-						"type": "nvarchar"
-					},
-					{
-						"name": "AccountType",
-						"type": "nvarchar"
-					},
-					{
-						"name": "Operator",
-						"type": "nvarchar"
-					},
-					{
-						"name": "CustomMemberExpression",
-						"type": "nvarchar"
-					},
-					{
-						"name": "EmployeeKey_FinancialController",
-						"type": "int",
-						"precision": 10
-					}
-				],
+				"schema": [],
 				"typeProperties": {
 					"schema": "dbo",
 					"table": "DimAccount"
 				}
 			},
 			"dependsOn": [
-				"[concat(variables('workspaceId'), '/linkedServices/SqlServer1')]"
+				"[concat(variables('workspaceId'), '/linkedServices/ASD01Tables')]"
 			]
 		},
 		{
@@ -1610,6 +1605,30 @@
 			},
 			"dependsOn": [
 				"[concat(variables('workspaceId'), '/linkedServices/HttpServerTripDataLinkedService')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/ASD01Tables')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "SqlServer",
+				"typeProperties": {
+					"connectionString": "[parameters('ASD01Tables_connectionString')]",
+					"userName": "[parameters('ASD01Tables_properties_typeProperties_userName')]",
+					"password": {
+						"type": "SecureString",
+						"value": "[parameters('ASD01Tables_password')]"
+					}
+				},
+				"connectVia": {
+					"referenceName": "SelfHostedIR",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/SelfHostedIR')]"
 			]
 		},
 		{
