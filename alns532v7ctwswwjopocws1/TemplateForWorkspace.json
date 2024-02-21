@@ -11,6 +11,19 @@
 			"type": "secureString",
 			"metadata": "Secure string for 'accountKey' of 'AzureDataLakeStorageWithoutParameters'"
 		},
+		"AzureSynapseAnalytics1_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'AzureSynapseAnalytics1'"
+		},
+		"SqlServer1_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'SqlServer1'",
+			"defaultValue": "Integrated Security=True;Data Source=LAPTOP-4VUEG59Q;Initial Catalog=AdventureWorksDW2020"
+		},
+		"SqlServer1_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'SqlServer1'"
+		},
 		"TripFaresSynapseAnalyticsLinkedService_connectionString": {
 			"type": "secureString",
 			"metadata": "Secure string for 'connectionString' of 'TripFaresSynapseAnalyticsLinkedService'",
@@ -28,6 +41,10 @@
 			"type": "string",
 			"defaultValue": "https://raw.githubusercontent.com/Azure/Test-Drive-Azure-Synapse-with-a-1-click-POC/main/tripDataAndFaresCSV/fares-data.csv"
 		},
+		"SqlServer1_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "EUROPE\\alnicula"
+		},
 		"TripFaresDataLakeStorageLinkedService_properties_typeProperties_url": {
 			"type": "string",
 			"defaultValue": "@{concat('https://',linkedService().datalakeAccountName,'.dfs.core.windows.net')}"
@@ -41,6 +58,131 @@
 		"workspaceId": "[concat('Microsoft.Synapse/workspaces/', parameters('workspaceName'))]"
 	},
 	"resources": [
+		{
+			"name": "[concat(parameters('workspaceName'), '/MultipelTablesOnPrem')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Get Tables",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": "select name as 'TableName'\nfrom sys.tables\nwhere name in ('DimAccount', 'DimCurrency', 'DimCustomer', 'DimDate', 'DimGeography', 'DimProduct', 'DimProductCategory','DimProductSubcategory','DimReseller','DimSalesReason','FactInternetSales')\n",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "SqlServerTableOnPrem",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "Loop Each Table",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Get Tables",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@array(activity('Get Tables').output.value)",
+								"type": "Expression"
+							},
+							"isSequential": true,
+							"activities": [
+								{
+									"name": "Copy data1",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlServerSource",
+											"sqlReaderQuery": {
+												"value": "@concat('SELECT * FROM ', string(item().TableName))",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "SqlDWSink",
+											"allowPolyBase": true,
+											"polyBaseSettings": {
+												"rejectValue": 0,
+												"rejectType": "value",
+												"useTypeDefault": true
+											}
+										},
+										"enableStaging": true,
+										"stagingSettings": {
+											"linkedServiceName": {
+												"referenceName": "AzureDataLakeStorageWithoutParameters",
+												"type": "LinkedServiceReference"
+											},
+											"path": "staging"
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "SqlServerTableOnPrem",
+											"type": "DatasetReference",
+											"parameters": {}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "AzureSynapseAnalytics",
+											"type": "DatasetReference",
+											"parameters": {
+												"schema": "@string('SalesMigration')",
+												"table": "@string(item().TableName"
+											}
+										}
+									]
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/SqlServerTableOnPrem')]",
+				"[concat(variables('workspaceId'), '/datasets/AzureSynapseAnalytics')]",
+				"[concat(variables('workspaceId'), '/linkedServices/AzureDataLakeStorageWithoutParameters')]"
+			]
+		},
 		{
 			"name": "[concat(parameters('workspaceName'), '/Pipeline 1')]",
 			"type": "Microsoft.Synapse/workspaces/pipelines",
@@ -120,6 +262,72 @@
 			"dependsOn": [
 				"[concat(variables('workspaceId'), '/datasets/Parquet1')]",
 				"[concat(variables('workspaceId'), '/datasets/DelimitedText1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Pipeline 2')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Copy data1",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "SqlPoolSink",
+								"allowCopyCommand": true,
+								"copyCommandSettings": {},
+								"tableOption": "autoCreate"
+							},
+							"enableStaging": true,
+							"stagingSettings": {
+								"linkedServiceName": {
+									"referenceName": "AzureDataLakeStorageWithoutParameters",
+									"type": "LinkedServiceReference"
+								},
+								"path": "staging"
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "SqlServerTableOnPrem",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "SqlPoolTable1",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/SqlServerTableOnPrem')]",
+				"[concat(variables('workspaceId'), '/datasets/SqlPoolTable1')]",
+				"[concat(variables('workspaceId'), '/linkedServices/AzureDataLakeStorageWithoutParameters')]"
 			]
 		},
 		{
@@ -637,6 +845,43 @@
 			]
 		},
 		{
+			"name": "[concat(parameters('workspaceName'), '/AzureSynapseAnalytics')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureSynapseAnalytics1",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"schema": {
+						"type": "string",
+						"defaultValue": "@dataset().schema"
+					},
+					"table": {
+						"type": "string",
+						"defaultValue": "@dataset().table"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlDWTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": {
+						"value": "@dataset().schema",
+						"type": "Expression"
+					},
+					"table": {
+						"value": "@dataset().table",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/AzureSynapseAnalytics1')]"
+			]
+		},
+		{
 			"name": "[concat(parameters('workspaceName'), '/AzureSynapseAnalyticsFaresData')]",
 			"type": "Microsoft.Synapse/workspaces/datasets",
 			"apiVersion": "2019-06-01-preview",
@@ -906,6 +1151,90 @@
 			},
 			"dependsOn": [
 				"[concat(variables('workspaceId'), '/linkedServices/AzureDataLakeStorageWithoutParameters')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SqlPoolTable1')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "SqlPoolTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "dimaccount"
+				},
+				"sqlPool": {
+					"referenceName": "alns532v7ctwswwjopocws1p1",
+					"type": "SqlPoolReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/sqlPools/alns532v7ctwswwjopocws1p1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SqlServerTableOnPrem')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "SqlServer1",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [
+					{
+						"name": "AccountKey",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "ParentAccountKey",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "AccountCodeAlternateKey",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "ParentAccountCodeAlternateKey",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "AccountDescription",
+						"type": "nvarchar"
+					},
+					{
+						"name": "AccountType",
+						"type": "nvarchar"
+					},
+					{
+						"name": "Operator",
+						"type": "nvarchar"
+					},
+					{
+						"name": "CustomMemberExpression",
+						"type": "nvarchar"
+					},
+					{
+						"name": "EmployeeKey_FinancialController",
+						"type": "int",
+						"precision": 10
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "DimAccount"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/SqlServer1')]"
 			]
 		},
 		{
@@ -1307,6 +1636,25 @@
 			]
 		},
 		{
+			"name": "[concat(parameters('workspaceName'), '/AzureSynapseAnalytics1')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureSqlDW",
+				"typeProperties": {
+					"connectionString": "[parameters('AzureSynapseAnalytics1_connectionString')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
 			"name": "[concat(parameters('workspaceName'), '/HttpServerTripDataLinkedService')]",
 			"type": "Microsoft.Synapse/workspaces/linkedServices",
 			"apiVersion": "2019-06-01-preview",
@@ -1361,6 +1709,30 @@
 				}
 			},
 			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SqlServer1')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "SqlServer",
+				"typeProperties": {
+					"connectionString": "[parameters('SqlServer1_connectionString')]",
+					"userName": "[parameters('SqlServer1_properties_typeProperties_userName')]",
+					"password": {
+						"type": "SecureString",
+						"value": "[parameters('SqlServer1_password')]"
+					}
+				},
+				"connectVia": {
+					"referenceName": "SelfHostedIR",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/SelfHostedIR')]"
+			]
 		},
 		{
 			"name": "[concat(parameters('workspaceName'), '/TripFaresDataLakeStorageLinkedService')]",
@@ -1572,6 +1944,66 @@
 			"type": "Microsoft.Synapse/workspaces/managedVirtualNetworks",
 			"apiVersion": "2019-06-01-preview",
 			"properties": {},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Create Schema')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "CREATE SCHEMA [SalesMigration];\n\nCREATE TABLE [SalesMigration].[DimAccount] ([AccountKey] Int NOT NULL\n,[ParentAccountKey] Int NULL\n,[AccountCodeAlternateKey] Int NULL\n,[ParentAccountCodeAlternateKey] Int NULL\n,[AccountDescription] NVarchar(50) NULL\n,[AccountType] NVarchar(50) NULL\n,[Operator] NVarchar(50) NULL\n,[CustomMembers] NVarchar(300) NULL\n,[ValueType] NVarchar(50) NULL\n,[CustomMemberOptions] NVarchar(200) NULL\n) WITH (CLUSTERED COLUMNSTORE INDEX, DISTRIBUTION = ROUND_ROBIN)\n\nCREATE TABLE [SalesMigration].[DimCurrency] ([CurrencyKey] Int NOT NULL\n,[CurrencyAlternateKey] NChar(3) NOT NULL\n,[CurrencyName] NVarchar(50) NOT NULL\n) WITH (CLUSTERED COLUMNSTORE INDEX, DISTRIBUTION = ROUND_ROBIN)\n\nCREATE TABLE [SalesMigration].[DimCustomer] ([CustomerKey] Int NOT NULL\n,[GeographyKey] Int NULL\n,[CustomerAlternateKey] NVarchar(15) NOT NULL\n,[Title] NVarchar(8) NULL\n,[FirstName] NVarchar(50) NULL\n,[MiddleName] NVarchar(50) NULL\n,[LastName] NVarchar(50) NULL\n,[NameStyle] Bit NULL\n,[BirthDate] Date NULL\n,[MaritalStatus] NChar(1) NULL\n,[Suffix] NVarchar(10) NULL\n,[Gender] NVarchar(1) NULL\n,[EmailAddress] NVarchar(50) NULL\n,[YearlyIncome] Money NULL\n,[TotalChildren] TinyInt NULL\n,[NumberChildrenAtHome] TinyInt NULL\n,[EnglishEducation] NVarchar(40) NULL\n,[SpanishEducation] NVarchar(40) NULL\n,[FrenchEducation] NVarchar(40) NULL\n,[EnglishOccupation] NVarchar(100) NULL\n,[SpanishOccupation] NVarchar(100) NULL\n,[FrenchOccupation] NVarchar(100) NULL\n,[HouseOwnerFlag] NChar(1) NULL\n,[NumberCarsOwned] TinyInt NULL\n,[AddressLine1] NVarchar(120) NULL\n,[AddressLine2] NVarchar(120) NULL\n,[Phone] NVarchar(20) NULL\n,[DateFirstPurchase] Date NULL\n,[CommuteDistance] NVarchar(15) NULL\n) WITH (CLUSTERED COLUMNSTORE INDEX, DISTRIBUTION = ROUND_ROBIN)\n\nCREATE TABLE [SalesMigration].[DimDate] ([DateKey] Int NOT NULL\n,[FullDateAlternateKey] Date NOT NULL\n,[DayNumberOfWeek] TinyInt NOT NULL\n,[EnglishDayNameOfWeek] NVarchar(10) NOT NULL\n,[SpanishDayNameOfWeek] NVarchar(10) NOT NULL\n,[FrenchDayNameOfWeek] NVarchar(10) NOT NULL\n,[DayNumberOfMonth] TinyInt NOT NULL\n,[DayNumberOfYear] SmallInt NOT NULL\n,[WeekNumberOfYear] TinyInt NOT NULL\n,[EnglishMonthName] NVarchar(10) NOT NULL\n,[SpanishMonthName] NVarchar(10) NOT NULL\n,[FrenchMonthName] NVarchar(10) NOT NULL\n,[MonthNumberOfYear] TinyInt NOT NULL\n,[CalendarQuarter] TinyInt NOT NULL\n,[CalendarYear] SmallInt NOT NULL\n,[CalendarSemester] TinyInt NOT NULL\n,[FiscalQuarter] TinyInt NOT NULL\n,[FiscalYear] SmallInt NOT NULL\n,[FiscalSemester] TinyInt NOT NULL\n) WITH (CLUSTERED COLUMNSTORE INDEX, DISTRIBUTION = ROUND_ROBIN)\n\nCREATE TABLE [SalesMigration].[DimGeography] ([GeographyKey] Int NOT NULL\n,[City] NVarchar(30) NULL\n,[StateProvinceCode] NVarchar(3) NULL\n,[StateProvinceName] NVarchar(50) NULL\n,[CountryRegionCode] NVarchar(3) NULL\n,[EnglishCountryRegionName] NVarchar(50) NULL\n,[SpanishCountryRegionName] NVarchar(50) NULL\n,[FrenchCountryRegionName] NVarchar(50) NULL\n,[PostalCode] NVarchar(15) NULL\n,[SalesTerritoryKey] Int NULL\n,[IpAddressLocator] NVarchar(15) NULL\n) WITH (CLUSTERED COLUMNSTORE INDEX, DISTRIBUTION = ROUND_ROBIN)\n\nCREATE TABLE [SalesMigration].[DimProduct] ([ProductKey] Int NOT NULL\n,[ProductAlternateKey] NVarchar(25) NULL\n,[ProductSubcategoryKey] Int NULL\n,[WeightUnitMeasureCode] NChar(3) NULL\n,[SizeUnitMeasureCode] NChar(3) NULL\n,[EnglishProductName] NVarchar(50) NOT NULL\n,[SpanishProductName] NVarchar(50) NOT NULL\n,[FrenchProductName] NVarchar(50) NOT NULL\n,[StandardCost] Money NULL\n,[FinishedGoodsFlag] Bit NOT NULL\n,[Color] NVarchar(15) NOT NULL\n,[SafetyStockLevel] SmallInt NULL\n,[ReorderPoint] SmallInt NULL\n,[ListPrice] Money NULL\n,[Size] NVarchar(50) NULL\n,[SizeRange] NVarchar(50) NULL\n,[Weight] Float NULL\n,[DaysToManufacture] Int NULL\n,[ProductLine] NChar(2) NULL\n,[DealerPrice] Money NULL\n,[Class] NChar(2) NULL\n,[Style] NChar(2) NULL\n,[ModelName] NVarchar(50) NULL\n,[EnglishDescription] NVarchar(400) NULL\n,[FrenchDescription] NVarchar(400) NULL\n,[ChineseDescription] NVarchar(400) NULL\n,[ArabicDescription] NVarchar(400) NULL\n,[HebrewDescription] NVarchar(400) NULL\n,[ThaiDescription] NVarchar(400) NULL\n,[GermanDescription] NVarchar(400) NULL\n,[JapaneseDescription] NVarchar(400) NULL\n,[TurkishDescription] NVarchar(400) NULL\n,[StartDate] DateTime NULL\n,[EndDate] DateTime NULL\n,[Status] NVarchar(7) NULL\n) WITH (CLUSTERED COLUMNSTORE INDEX, DISTRIBUTION = ROUND_ROBIN)\n\nCREATE TABLE [SalesMigration].[DimProductCategory] ([ProductCategoryKey] Int NOT NULL\n,[ProductCategoryAlternateKey] Int NULL\n,[EnglishProductCategoryName] NVarchar(50) NOT NULL\n,[SpanishProductCategoryName] NVarchar(50) NOT NULL\n,[FrenchProductCategoryName] NVarchar(50) NOT NULL\n) WITH (CLUSTERED COLUMNSTORE INDEX, DISTRIBUTION = ROUND_ROBIN)\n\nCREATE TABLE [SalesMigration].[DimProductSubcategory] ([ProductSubcategoryKey] Int NOT NULL\n,[ProductSubcategoryAlternateKey] Int NULL\n,[EnglishProductSubcategoryName] NVarchar(50) NOT NULL\n,[SpanishProductSubcategoryName] NVarchar(50) NOT NULL\n,[FrenchProductSubcategoryName] NVarchar(50) NOT NULL\n,[ProductCategoryKey] Int NULL\n) WITH (CLUSTERED COLUMNSTORE INDEX, DISTRIBUTION = ROUND_ROBIN)\n\nCREATE TABLE [SalesMigration].[DimReseller] ([ResellerKey] Int NOT NULL\n,[GeographyKey] Int NULL\n,[ResellerAlternateKey] NVarchar(15) NULL\n,[Phone] NVarchar(25) NULL\n,[BusinessType] VarChar(20) NOT NULL\n,[ResellerName] NVarchar(50) NOT NULL\n,[NumberEmployees] Int NULL\n,[OrderFrequency] Char(1) NULL\n,[OrderMonth] TinyInt NULL\n,[FirstOrderYear] Int NULL\n,[LastOrderYear] Int NULL\n,[ProductLine] NVarchar(50) NULL\n,[AddressLine1] NVarchar(60) NULL\n,[AddressLine2] NVarchar(60) NULL\n,[AnnualSales] Money NULL\n,[BankName] NVarchar(50) NULL\n,[MinPaymentType] TinyInt NULL\n,[MinPaymentAmount] Money NULL\n,[AnnualRevenue] Money NULL\n,[YearOpened] Int NULL\n) WITH (CLUSTERED COLUMNSTORE INDEX, DISTRIBUTION = ROUND_ROBIN)\n\nCREATE TABLE [SalesMigration].[DimSalesReason] ([SalesReasonKey] Int NOT NULL\n,[SalesReasonAlternateKey] Int NOT NULL\n,[SalesReasonName] NVarchar(50) NOT NULL\n,[SalesReasonReasonType] NVarchar(50) NOT NULL\n) WITH (CLUSTERED COLUMNSTORE INDEX, DISTRIBUTION = ROUND_ROBIN)\n\nCREATE TABLE [SalesMigration].[FactInternetSales] ([ProductKey] Int NOT NULL\n,[OrderDateKey] Int NOT NULL\n,[DueDateKey] Int NOT NULL\n,[ShipDateKey] Int NOT NULL\n,[CustomerKey] Int NOT NULL\n,[PromotionKey] Int NOT NULL\n,[CurrencyKey] Int NOT NULL\n,[SalesTerritoryKey] Int NOT NULL\n,[SalesOrderNumber] NVarchar(20) NOT NULL\n,[SalesOrderLineNumber] TinyInt NOT NULL\n,[RevisionNumber] TinyInt NOT NULL\n,[OrderQuantity] SmallInt NOT NULL\n,[UnitPrice] Money NOT NULL\n,[ExtendedAmount] Money NOT NULL\n,[UnitPriceDiscountPct] Float NOT NULL\n,[DiscountAmount] Float NOT NULL\n,[ProductStandardCost] Money NOT NULL\n,[TotalProductCost] Money NOT NULL\n,[SalesAmount] Money NOT NULL\n,[TaxAmt] Money NOT NULL\n,[Freight] Money NOT NULL\n,[CarrierTrackingNumber] NVarchar(25) NULL\n,[CustomerPONumber] NVarchar(25) NULL\n,[OrderDate] DateTime NULL\n,[DueDate] DateTime NULL\n,[ShipDate] DateTime NULL\n) WITH (CLUSTERED COLUMNSTORE INDEX, DISTRIBUTION = HASH([ProductKey]))\n\nCREATE TABLE [SalesMigration].[FactInternetSalesReason] ([SalesOrderNumber] NVarchar(20) NOT NULL\n,[SalesOrderLineNumber] TinyInt NOT NULL\n,[SalesReasonKey] Int NOT NULL\n) WITH (CLUSTERED COLUMNSTORE INDEX, DISTRIBUTION = ROUND_ROBIN)\n\nCREATE TABLE [SalesMigration].[FactProductInventory] ([ProductKey] Int NOT NULL\n,[DateKey] Int NOT NULL\n,[MovementDate] Date NOT NULL\n,[UnitCost] Money NOT NULL\n,[UnitsIn] Int NOT NULL\n,[UnitsOut] Int NOT NULL\n,[UnitsBalance] Int NOT NULL\n) WITH (CLUSTERED COLUMNSTORE INDEX, DISTRIBUTION = HASH([ProductKey]))\n\nCREATE TABLE [SalesMigration].[FactResellerSales] ([ProductKey] Int NOT NULL\n,[OrderDateKey] Int NOT NULL\n,[DueDateKey] Int NOT NULL\n,[ShipDateKey] Int NOT NULL\n,[ResellerKey] Int NOT NULL\n,[EmployeeKey] Int NOT NULL\n,[PromotionKey] Int NOT NULL\n,[CurrencyKey] Int NOT NULL\n,[SalesTerritoryKey] Int NOT NULL\n,[SalesOrderNumber] NVarchar(20) NOT NULL\n,[SalesOrderLineNumber] TinyInt NOT NULL\n,[RevisionNumber] TinyInt NULL\n,[OrderQuantity] SmallInt NULL\n,[UnitPrice] Money NULL\n,[ExtendedAmount] Money NULL\n,[UnitPriceDiscountPct] Float NULL\n,[DiscountAmount] Float NULL\n,[ProductStandardCost] Money NULL\n,[TotalProductCost] Money NULL\n,[SalesAmount] Money NULL\n,[TaxAmt] Money NULL\n,[Freight] Money NULL\n,[CarrierTrackingNumber] NVarchar(25) NULL\n,[CustomerPONumber] NVarchar(25) NULL\n,[OrderDate] DateTime NULL\n,[DueDate] DateTime NULL\n,[ShipDate] DateTime NULL\n) WITH (CLUSTERED COLUMNSTORE INDEX, DISTRIBUTION = HASH([ProductKey]))\n\n",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"databaseName": "alns532v7ctwswwjopocws1p1",
+						"poolName": "alns532v7ctwswwjopocws1p1"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SQL script 1')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "SELECT TOP (100) [AccountKey]\n,[ParentAccountKey]\n,[AccountCodeAlternateKey]\n,[ParentAccountCodeAlternateKey]\n,[AccountDescription]\n,[AccountType]\n,[Operator]\n,[CustomMemberExpression]\n,[EmployeeKey_FinancialController]\n FROM [dbo].[dimaccount]",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"databaseName": "alns532v7ctwswwjopocws1p1",
+						"poolName": "alns532v7ctwswwjopocws1p1"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SQL script 2')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "SELECT TOP (100) [AccountKey]\n,[ParentAccountKey]\n,[AccountCodeAlternateKey]\n,[ParentAccountCodeAlternateKey]\n,[AccountDescription]\n,[AccountType]\n,[Operator]\n,[CustomMembers]\n,[ValueType]\n,[CustomMemberOptions]\n FROM [SalesMigration].[DimAccount]",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"databaseName": "alns532v7ctwswwjopocws1p1",
+						"poolName": "alns532v7ctwswwjopocws1p1"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
 			"dependsOn": []
 		},
 		{
