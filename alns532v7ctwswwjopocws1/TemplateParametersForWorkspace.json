@@ -11,6 +11,9 @@
 		"ASD01Tables_password": {
 			"value": ""
 		},
+		"AzureBlobStorage1_connectionString": {
+			"value": ""
+		},
 		"AzureDataLakeStorageWithoutParameters_accountKey": {
 			"value": ""
 		},
